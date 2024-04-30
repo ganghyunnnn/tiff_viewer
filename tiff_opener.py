@@ -1,6 +1,6 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget, QPushButton, QFileDialog, QShortcut
-from PyQt5.QtGui import QPixmap, QImage, QPainter, QFont, QFontMetrics, QTextOption
+from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton, QFileDialog, QShortcut, QLabel
+from PyQt5.QtGui import QPixmap, QImage, QFont, QFontMetrics, QColor
 from PyQt5.QtCore import Qt, QRect
 import cv2
 import numpy as np
@@ -20,6 +20,12 @@ class ImageViewer(QMainWindow):
         self.label = QLabel(self)
         self.label.setAlignment(Qt.AlignCenter)
         self.layout.addWidget(self.label)
+
+        self.metadata_label = QLabel(self)
+        self.metadata_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self.metadata_label.setStyleSheet("background-color: white; border: 1px solid black; padding: 10px;")
+        self.metadata_label.hide()
+        self.layout.addWidget(self.metadata_label)
 
         self.setStyleSheet("""
             QPushButton {
@@ -61,28 +67,24 @@ class ImageViewer(QMainWindow):
 
     def toggle_image_info(self):
         self.show_image_info = not self.show_image_info
-        self.update()
-
-    def paintEvent(self, event):
-        super().paintEvent(event)
         if self.show_image_info:
-            if self.image_metadata:
-                self.display_image_info()
+            self.display_image_info()
+        else:
+            self.metadata_label.hide()
 
     def display_image_info(self):
-        width, height, resolution, channels, band_min_max = self.image_metadata
-        info_text = f"Image Size: {width}x{height}\n"
-        info_text += f"Number of Channels: {channels}\n"
-        info_text += "Band Min/Max:\n"
-        for i, (min_val, max_val) in enumerate(band_min_max):
-            info_text += f"Channel {i + 1}: {min_val}~{max_val}\n"
-
-        painter = QPainter(self)
-        painter.setFont(QFont("Arial", 10))
-        metrics = QFontMetrics(painter.font())
-        text_rect = QRect(10, 10, metrics.width(info_text), metrics.height() * info_text.count('\n') + 10)
-        painter.fillRect(text_rect.adjusted(-5, -5, 5, 5), Qt.white)
-        painter.drawText(text_rect, Qt.AlignLeft | Qt.AlignTop, info_text)
+        if self.image_metadata:
+            width, height, resolution, channels, band_min_max = self.image_metadata
+            info_text = f"Image Size: {width}x{height}\n"
+            info_text += f"Number of Channels: {channels}\n"
+            info_text += "Band Min/Max:\n"
+            for i, (min_val, max_val) in enumerate(band_min_max):
+                info_text += f"Channel {i + 1}: {min_val}~{max_val}"
+                if i < len(band_min_max) - 1:
+                    info_text += "\n"  # 마지막 줄을 제외한 줄에 줄 바꿈 추가
+            self.metadata_label.setText(info_text)
+            self.metadata_label.adjustSize()
+            self.metadata_label.show()
 
     def open_tiff(self):
         options = QFileDialog.Options()
@@ -114,7 +116,6 @@ class ImageViewer(QMainWindow):
         height, width, channel = image.shape
         bytes_per_line = channel * width
 
-        bytes_per_line = channel * width
         q_image = QImage(image.data, width, height, bytes_per_line, QImage.Format_RGB888)
         pixmap = QPixmap.fromImage(q_image)
 
